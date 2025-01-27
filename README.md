@@ -34,8 +34,7 @@ Adopted Users were mostly invited by Org_Invite and Guest_Invite. This tells tha
 
 ## Next Steps
 
-Perform a Correlation Analysis
-Perform a Prediction Analysis
+Perform a Correlation Analysis and Perform a Prediction Analysis.
 
 ## Challenges
 
@@ -51,13 +50,13 @@ The tools used were:
 * Looker Studio: Create the graphs
 
 The processes were:
-Data Gathering → Data Exploration → Data Cleaning → Data Analysis
+* **Data Gathering → Data Exploration → Data Cleaning → Data Analysis**
 
 Each part of the process will be presented below.
 
 ## Contextualization
 
-**User Table**
+**User Table:**
 ("takehome_users") with data on 12,000 users who signed up for the product in the last two years.
 This table includes:
 
@@ -84,9 +83,9 @@ This takes on one of 5 values:
 * org_id: the organization (group of users) they belong to
 * invited_by_user_id: which user invited them to join (if applicable).
 
-![User_Table](https://github.com/lvgalvao/Northwind-SQL-Analytics/blob/main/pics/northwind-er-diagram.png?raw=true)
+![User_Table](https://github.com/AndersonStumpf/Data-Analysis-Relax-Inc/blob/main/pics/user_table.png)
 
-**User Engagement Table**
+**User Engagement Table:**
 ("takehome_user_engagement") that has a row for each day that a user logged into the product.
 This table includes:
 
@@ -94,7 +93,7 @@ This table includes:
 * user_id: the user's id
 * visited
 
-![User_Table_Engagement](https://github.com/lvgalvao/Northwind-SQL-Analytics/blob/main/pics/northwind-er-diagram.png?raw=true)
+![User_Table_Engagement](https://github.com/AndersonStumpf/Data-Analysis-Relax-Inc/blob/main/pics/user_engagement.png)
 
 ## Data Gathering
 
@@ -114,7 +113,7 @@ Some data exploration was performed for better understanding of the data.
     GROUP BY 1
     ORDER BY 2 DESC
 ```
-![Creation_Source](https://github.com/lvgalvao/Northwind-SQL-Analytics/blob/main/pics/northwind-er-diagram.png?raw=true)
+![Creation_Source](https://github.com/AndersonStumpf/Data-Analysis-Relax-Inc/blob/main/pics/creation_surce_distribution.png)
 
 **Visits Over Time**
 ```sql
@@ -124,7 +123,7 @@ Some data exploration was performed for better understanding of the data.
     ORDER BY 1,2
 
 ```
-![Creation_Source_Visites_over_time](https://github.com/lvgalvao/Northwind-SQL-Analytics/blob/main/pics/northwind-er-diagram.png?raw=true)
+![Creation_Source_Visites_over_time](https://github.com/AndersonStumpf/Data-Analysis-Relax-Inc/blob/main/pics/creation_source_visites.png)
 
 ## Data Cleaning
 
@@ -143,8 +142,8 @@ Some data exploration was performed for better understanding of the data.
 
 **Nulls**
 
-last_session_creation_time – 3177 Nulls
-invited_by_user_id - 5583 Nulls
+* last_session_creation_time – 3177 Nulls
+* invited_by_user_id - 5583 Nulls
 
 ```sql
     UPDATE cleaned_takehome_user
@@ -159,7 +158,7 @@ invited_by_user_id - 5583 Nulls
 
 **Adopted Users History**
 ```sql
-    CREATE VIEW adopted_users_history AS
+CREATE VIEW adopted_users_history AS
     WITH visite_history AS (
         SELECT user_id, time_stamp, LAG(time_stamp) OVER(PARTITION BY user_id ORDER BY time_stamp) AS lag_1, LAG(time_stamp, 2) OVER(PARTITION BY user_id ORDER BY time_stamp) AS lag_2
         FROM cleaned_takehome_user_engagement
@@ -173,7 +172,7 @@ invited_by_user_id - 5583 Nulls
 ```
 **Adopted Users**
 ```sql
-    CREATE VIEW adopted_users AS
+CREATE VIEW adopted_users AS
     WITH adopted_users AS (
         SELECT DISTINCT user_id, adopted_user
         FROM adopted_users_history
@@ -242,3 +241,11 @@ invited_by_user_id - 5583 Nulls
     ORDER BY 3 DESC
 
 ```
+
+## Next steps
+
+* **Perform a Correlation Analysis**
+* **Perform a Prediction Analysis**
+
+Please note any factors you considered or investigation you did, even if they did not pan out. Feel free to identify any further research or data you think would be valuable.
+Thank you.
