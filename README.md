@@ -2,14 +2,14 @@
 
 ## Objective
 
-This repository aims to showcase advanced reports built using SQL. The analyses provided here can be applied to businesses of all sizes that aspire to become more data-driven. These reports will help organizations extract valuable insights from their data, aiding in strategic decision-making.
+This repository demonstrates advanced SQL reporting and analysis skills, showcasing how businesses can extract valuable insights to drive strategic decision-making.
 
 ## Context
 
-The `Relax Inc.` makes productivity and project management software that's popular with both individuals and teams. Founded by several former Facebook employees.
+`Relax Inc.` makes productivity and project management software that's popular with both individuals and teams. Founded by several former Facebook employees.
 This data analytics take-home assignment, which has been given to data analysts at Relax Inc., asks you to dig into user engagement data.
 
-The main objective is determine who an `“adopted user”` is, which is a user who has logged into the product on three separate days in at least one seven-day period.
+The goal of this take-home assignment is to identify adopted users — those who logged in on three separate days within a seven-day period — and derive insights about user engagement patterns to inform strategic decisions.
 
 Other analyzes were also carried out to better understand the dataset:
 * Adopted User Profile
@@ -17,20 +17,18 @@ Other analyzes were also carried out to better understand the dataset:
 * Users Profile who Logged in 1, 2 and 3+ times
 * Marketing Drip x Mailing List x None
 
-## Interesting Findings
+## Key Findings
 
-* **Adopted Users represent 12% of the dataset**
-* **Source Creation - Adopted Users were mostly invited by Org_Invite and Guest_Invite**
+* **Adopted users account for 12% of the dataset, highlighting a significant minority of highly engaged users**
+* **Most adopted users were invited via Org_Invite or Guest_Invite, suggesting the importance of organizational referrals**
 * **Marketing Drip and Mailing List Opt didn't show anything to interesting compared to users who did not receive any email** 
-* **Around 71% of users only accessed it once** 
+* **Approximately 71% of users logged in only once, indicating challenges with user retention** 
 
 ## Recommendation
 
 In general, users in each group (Marketing Drip and Mailing List Opt) have the same average number of visits, this behavior is repeated for the top 100, 500 and 1000 most active users. This shows that the investment in Drip Marketing and Mailing List Opt is not being effective.
 
-It would be interesting to carry out an A/B test with different types of email marketing to get more "adopted users".
-
-Adopted Users were mostly invited by Org_Invite and Guest_Invite. This tells that it may be advantageous to invest in other types of marketing campaigns aimed at capturing users from these groups.
+Conduct A/B testing with different email marketing strategies to increase user adoption rates. Additionally, focus marketing efforts on campaigns targeting users similar to those invited via Org_Invite and Guest_Invite channels.
 
 ## Next Steps
 
@@ -38,7 +36,7 @@ Perform a Correlation Analysis and Perform a Prediction Analysis.
 
 ## Challenges
 
-It would be great if we can have more data about user activity. With the features given it was difficult to carry out accurate analysis.
+The analysis was limited by the availability of user activity data, making it difficult to perform more nuanced analyses or establish causal relationships.
 
 # Project Step by Step
 
@@ -108,19 +106,24 @@ Some data exploration was performed for better understanding of the data.
 **Frequency Creation Source**
 
   ```sql
-    SELECT creation_source, COUNT(creation_source) AS quant
+    -- Count the number of users grouped by their account creation source.
+    SELECT creation_source, 
+        COUNT(creation_source) AS quant -- Count the occurrences of each creation source
     FROM raw_takehome_user
-    GROUP BY 1
-    ORDER BY 2 DESC
+    GROUP BY creation_source -- Group by the creation source field
+    ORDER BY quant DESC; -- Sort the results in descending order by count
 ```
 ![Creation_Source](https://github.com/AndersonStumpf/Data-Analysis-Relax-Inc/blob/main/pics/creation_surce_distribution.png)
 
 **Visits Over Time**
 ```sql
-    SELECT year, month, count(*)
+    -- Count the number of user visits, grouped by year and month.
+    SELECT year, 
+        month, 
+        COUNT(*) AS visit_count -- Count the total visits for each year and month
     FROM cleaned_takehome_user_engagement
-    GROUP BY 1,2
-    ORDER BY 1,2
+    GROUP BY year, month -- Group the data by year and month
+    ORDER BY year, month; -- Sort by year and month in ascending order
 
 ```
 ![Creation_Source_Visites_over_time](https://github.com/AndersonStumpf/Data-Analysis-Relax-Inc/blob/main/pics/creation_source_visites.png)
@@ -129,26 +132,30 @@ Some data exploration was performed for better understanding of the data.
 
 **Detecting Duplicates**
 ```sql
-    SELECT COUNT(*)
-    FROM 
-    (
-        SELECT object_id, name, COUNT(*) AS records
+    -- Identify duplicate records in the raw_takehome_user table.
+    SELECT COUNT(*) AS duplicate_count -- Count the number of duplicate rows
+    FROM (
+        SELECT object_id, 
+            name, 
+            COUNT(*) AS records -- Count the occurrences of each unique user ID and name
         FROM raw_takehome_user
-        GROUP BY 1
-    ) aa
-    WHERE records > 1
+        GROUP BY object_id, name -- Group by user ID and name
+    ) subquery
+    WHERE records > 1; -- Filter for groups with more than one record (duplicates)
 
 ```
 
-**Nulls**
+**Handling Nulls**
 
 * last_session_creation_time – 3177 Nulls
 * invited_by_user_id - 5583 Nulls
 
 ```sql
+    -- Fill NULL values in last_session_creation_time with the account creation time.
     UPDATE cleaned_takehome_user
     SET last_session_creation_time = COALESCE(last_session_creation_time::timestamp, creation_time::timestamp);
 
+    -- Replace NULL values in invited_by_user_id with '0' to indicate no inviter.
     UPDATE cleaned_takehome_user
     SET invited_by_user_id = COALESCE(invited_by_user_id, '0');
 
@@ -158,88 +165,114 @@ Some data exploration was performed for better understanding of the data.
 
 **Adopted Users History**
 ```sql
-CREATE VIEW adopted_users_history AS
-    WITH visite_history AS (
-        SELECT user_id, time_stamp, LAG(time_stamp) OVER(PARTITION BY user_id ORDER BY time_stamp) AS lag_1, LAG(time_stamp, 2) OVER(PARTITION BY user_id ORDER BY time_stamp) AS lag_2
+    -- Identify adopted users based on their login history.
+    CREATE VIEW adopted_users_history AS
+    WITH visit_history AS (
+        -- Create a history of user visits with timestamps of the previous two logins.
+        SELECT user_id, 
+            time_stamp, 
+            LAG(time_stamp) OVER (PARTITION BY user_id ORDER BY time_stamp) AS lag_1, -- Previous login
+            LAG(time_stamp, 2) OVER (PARTITION BY user_id ORDER BY time_stamp) AS lag_2 -- Two logins ago
         FROM cleaned_takehome_user_engagement
-        ORDER BY 2)
-
-    SELECT user_id, time_stamp, lag_1, lag_2,
-        CASE WHEN (time_stamp - lag_2) < '8 days' THEN 1 ELSE 0 END AS adopted_user
-    FROM visite_history
-    WHERE lag_2 IS NOT NULL
-
+    )
+    -- Mark users as adopted if they logged in on three separate days within a seven-day period.
+    SELECT user_id, 
+        time_stamp, 
+        lag_1, 
+        lag_2,
+        CASE 
+            WHEN (time_stamp - lag_2) < '8 days' THEN 1 -- Adopted user if difference between timestamps is less than 8 days
+            ELSE 0
+        END AS adopted_user
+    FROM visit_history
+    WHERE lag_2 IS NOT NULL; -- Exclude users without enough login history
 ```
 **Adopted Users**
 ```sql
-CREATE VIEW adopted_users AS
-    WITH adopted_users AS (
+    -- Create a list of adopted users and join it with the cleaned user table for additional information.
+    CREATE VIEW adopted_users AS
+    WITH adopted_users_list AS (
+        -- Select distinct adopted users from the history table.
         SELECT DISTINCT user_id, adopted_user
         FROM adopted_users_history
-        WHERE adopted_user = 1)
-
-    SELECT c.*, a.adopted_user
+        WHERE adopted_user = 1
+    )
+    SELECT c.*, 
+        a.adopted_user -- Include the adopted user flag
     FROM cleaned_takehome_user c
-    LEFT JOIN adopted_users a ON c.object_id = a.user_id
+    LEFT JOIN adopted_users_list a 
+    ON c.object_id = a.user_id; -- Match users by ID
 
 ```
 
 **Users Profile who Logged in 1, 2 and 3+ times**
 ```sql
+    -- Categorize users based on their login frequency and calculate percentages.
     WITH number_visits AS (
         SELECT user_id, 
-            CASE WHEN COUNT(visited) < 2 THEN '1'
-            WHEN COUNT(visited) < 3 THEN '2'
-            ELSE '3+' 
+            CASE 
+                WHEN COUNT(visited) < 2 THEN '1' -- 1 login
+                WHEN COUNT(visited) < 3 THEN '2' -- 2 logins
+                ELSE '3+' -- 3 or more logins
             END AS visits_quant
         FROM cleaned_takehome_user_engagement
-        GROUP BY 1)
-
-    SELECT visits_quant, COUNT(visits_quant), ROUND(COUNT(visits_quant) *100 /	SUM(COUNT(visits_quant)) OVER(PARTITION BY 1),2) AS pct
+        GROUP BY user_id
+    )
+    SELECT visits_quant, 
+        COUNT(visits_quant) AS count, -- Count the number of users in each category
+        ROUND(COUNT(visits_quant) * 100.0 / SUM(COUNT(visits_quant)) OVER(), 2) AS pct -- Calculate percentage
     FROM number_visits
-    GROUP BY 1
-    ORDER BY 2 DESC
-
+    GROUP BY visits_quant
+    ORDER BY count DESC; -- Sort by the number of users in descending order
 ```
 
 **Creation Source of the Users Profile who Logged 3+ times**
 ```sql
+    -- Analyze the creation source of users who logged in 3 or more times.
     WITH number_visits AS (
-        SELECT user_id::"varchar", 
-            CASE WHEN COUNT(visited) < 2 THEN '1'
-            WHEN COUNT(visited) < 3 THEN '2'
-            ELSE '3+' 
+        SELECT user_id::varchar, 
+            CASE 
+                WHEN COUNT(visited) < 2 THEN '1' -- 1 login
+                WHEN COUNT(visited) < 3 THEN '2' -- 2 logins
+                ELSE '3+' -- 3 or more logins
             END AS visits_quant
         FROM cleaned_takehome_user_engagement
-        GROUP BY 1)
-
-    SELECT c.creation_source, COUNT(n.user_id), ROUND(COUNT(n.user_id) *100 /	SUM(COUNT(n.user_id)) OVER(PARTITION BY 1),2) 
-    FROM number_visits n 
-    RIGHT JOIN cleaned_takehome_user c ON n.user_id = c.object_id
-    WHERE visits_quant = '3+'
-    GROUP BY 1
-    ORDER BY 2 DESC
+        GROUP BY user_id
+    )
+    SELECT c.creation_source, 
+        COUNT(n.user_id) AS user_count, -- Count the number of users for each creation source
+        ROUND(COUNT(n.user_id) * 100.0 / SUM(COUNT(n.user_id)) OVER(), 2) AS pct -- Calculate percentage
+    FROM number_visits n
+    RIGHT JOIN cleaned_takehome_user c 
+    ON n.user_id = c.object_id
+    WHERE visits_quant = '3+' -- Focus on users with 3+ logins
+    GROUP BY c.creation_source
+    ORDER BY user_count DESC; -- Sort by the number of users in descending order
 
 ```
 
 **Marketing Drip x Mailing List x None**
 ```sql
+    -- Compare user engagement based on marketing drip and mailing list participation.
     WITH number_visits AS (
-        SELECT user_id::"varchar", 
-            CASE WHEN COUNT(visited) < 2 THEN '1'
-            WHEN COUNT(visited) < 3 THEN '2'
-            ELSE '3+' 
+        SELECT user_id::varchar, 
+            CASE 
+                WHEN COUNT(visited) < 2 THEN '1' -- 1 login
+                WHEN COUNT(visited) < 3 THEN '2' -- 2 logins
+                ELSE '3+' -- 3 or more logins
             END AS visits_quant
         FROM cleaned_takehome_user_engagement
-        GROUP BY 1)
-
-    SELECT c.enabled_for_marketing_drip, opted_in_to_mailing_list,COUNT(n.user_id) 
-    FROM number_visits n 
-    RIGHT JOIN cleaned_takehome_user c ON n.user_id = c.object_id
-    WHERE visits_quant = '3+'
-    GROUP BY 1, 2
-    ORDER BY 3 DESC
-
+        GROUP BY user_id
+    )
+    SELECT c.enabled_for_marketing_drip, 
+        c.opted_in_to_mailing_list, 
+        COUNT(n.user_id) AS user_count -- Count the number of users in each category
+    FROM number_visits n
+    RIGHT JOIN cleaned_takehome_user c 
+    ON n.user_id = c.object_id
+    WHERE visits_quant = '3+' -- Focus on users with 3+ logins
+    GROUP BY c.enabled_for_marketing_drip, c.opted_in_to_mailing_list
+    ORDER BY user_count DESC; -- Sort by the number of users in descending order
 ```
 
 ## Next steps
